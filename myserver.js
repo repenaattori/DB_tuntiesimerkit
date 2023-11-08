@@ -1,5 +1,7 @@
 const express = require('express');
 const app = express();
+const multer = require('multer');
+const upload = multer({dest: 'upload/'});
 
 //Middlewares
 app.use(express.static('public'));
@@ -12,15 +14,65 @@ app.listen(PORT, () => {
     console.log('Server running on port ' + PORT);
 });
 
-
-app.post('/user', (req,resp) =>{
+//Tukee sekä urlenecoded että multipart/form-data
+//Tukee myös JSONia
+app.post('/user', upload.none(), (req,resp) =>{
 
     const username = req.body.username;
     const pw = req.body.pw;
 
+    const sql = `SELECT * FROM customer WHERE username='${username}'`;
+
+
+    console.log(sql);
+
     resp.end(username);
 
 });
+
+//JSON-tauluko, jossa käyttäjiä esim. [{"fname" : "Reima", "age": 22}]
+app.post('/users', (req,resp)=>{
+
+    const users = req.body;
+
+    for (user of users) {
+        console.log(user.fname + " " + user.age);
+    }
+
+    resp.end();
+});
+
+
+app.post('/harj', (req,resp) =>{
+    const games = req.body;
+
+    for (g of games) {
+        console.log(g.title);
+    }
+
+    resp.end();
+});
+
+
+app.post('/harj2', (req,resp) =>{
+    const country = req.body[0];
+
+    const fin = country.name.nativeName.fin.official;
+    const swe = country.name.nativeName.swe.official;
+
+    console.log(fin);
+    console.log(swe);
+
+    resp.end();
+});
+
+
+//Polkuparametrin käyttö (? viittaa, että optionaalinen)
+app.get('/testi/:name?', (req, resp) =>{
+    console.log(req.params.name);
+    resp.end();
+} );
+
 
 
 app.get( '/', (req, resp) => {
