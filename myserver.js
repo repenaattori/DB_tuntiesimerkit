@@ -1,7 +1,12 @@
+require('dotenv').config()
+const mysql = require('mysql2/promise');
 const express = require('express');
 const app = express();
 const multer = require('multer');
 const upload = multer({dest: 'upload/'});
+
+//Bcrypt
+const bcrypt = require('bcrypt'); 
 
 //Middlewares
 app.use(express.static('public'));
@@ -14,19 +19,80 @@ app.listen(PORT, () => {
     console.log('Server running on port ' + PORT);
 });
 
+const conf = {
+    host: process.env.DB_HOST,
+    user: process.env.DB_USERNAME,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_DATABASE
+}
+
+app.post('/register', upload.none(), async (req, resp) =>{
+    const fname = req.body.fname;
+    const lname = req.body.lname;
+    const uname = req.body.uname;
+    let pw =req.body.pw;
+
+    pw = await bcrypt.hash(pw, 12);
+
+    const sql = 'INSERT INTO customer (first_name,last_name,username,pw) VALUES (?,?,?,?)';
+
+    try {
+        const con = await mysql.createConnection(conf);
+        await con.execute(sql, [fname,lname,uname,pw])
+        resp.end();
+    } catch (error) {
+        resp.status(500).send(error.message);
+    }
+})
+
+app.post('/login', upload.none(), async (req,resp)=>{
+    const uname = req.body.uname;
+    const pw =req.body.pw;
+
+    const sql = 'SELECT pw FROM customer WHERE username=?';
+
+    try {
+        const con = await mysql.createConnection(conf);
+        const [rows] = await con.execute(sql, [uname]);
+
+        if(rows.length === 0){
+            resp.status(401).send('Username not found!')
+        }else{
+            const pwHash = rows[0].pw;
+            const valid = await bcrypt.compare(pw, pwHash);
+
+            if(valid){
+                resp.status(200).send("Logged in!!!");
+            }else{
+                resp.status(401).send("Wrong password!!!");
+            }
+        }
+
+    } catch (error) {
+        resp.status(500).send(error.message);
+    }
+
+});
+ 
+
+
 //Tukee sekä urlenecoded että multipart/form-data
 //Tukee myös JSONia
-app.post('/user', upload.none(), (req,resp) =>{
+app.get('/product', async (req,resp) =>{
 
-    const username = req.body.username;
-    const pw = req.body.pw;
+    const id = req.query.id;
+  
+    const sql = 'SELECT * FROM product WHERE id=?';
 
-    const sql = `SELECT * FROM customer WHERE username='${username}'`;
+    try {
+       const con = await mysql.createConnection(conf);
+       const [rows] = await con.execute(sql, [id]);
+       resp.status(200).json(rows);
 
-
-    console.log(sql);
-
-    resp.end(username);
+    } catch (error) {
+        console.log(error);
+        resp.status(500).send(error.message);
+    }
 
 });
 
